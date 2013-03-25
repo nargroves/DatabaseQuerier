@@ -18,12 +18,15 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Vector;
 
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -41,6 +44,7 @@ import javax.swing.table.DefaultTableModel;
 
 public class QueryTool {
 
+	HashMap<JCheckBox,ArrayList<JCheckBox>>map = new HashMap<JCheckBox,ArrayList<JCheckBox>>();
 	JFrame outline = new JFrame();
 	JPanel entirePanel = new JPanel(new GridBagLayout());
 	Connection activeConnection = null;
@@ -57,11 +61,12 @@ public class QueryTool {
 	JButton bConnect = new JButton("Test");
 	JButton bSave = new JButton("Save");
 	JButton bExecute = new JButton("Execute");
+    JButton bAddRelationship = new JButton("Add Relationship");
 	JPanel pWhatTables = new JPanel();
 	JPanel pWhatColumns = new JPanel();
+	JPanel pWhatRelationships = new JPanel();
 	final JTextArea textArea = new JTextArea(5,50);
-	JScrollPane spTables, spColumns, spQuery;
-    
+	JScrollPane spTables, spColumns, spRelationships, spQuery;
 	
 	String databaseName = "";
 
@@ -108,17 +113,40 @@ public class QueryTool {
 			}
 		});
 		
+		bAddRelationship.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				pWhatRelationships = createNewRow(pWhatRelationships);
+			}
+		});
+		
 		textArea.setEditable(false);
+		textArea.setLineWrap(true);
+		textArea.setWrapStyleWord(true);
+		
+		pWhatTables.setLayout(new BoxLayout(pWhatTables, BoxLayout.Y_AXIS));
+		pWhatColumns.setLayout(new BoxLayout(pWhatColumns, BoxLayout.Y_AXIS));
+
+
 		JLabel lWhatTables = new JLabel("What Tables?");
 		JLabel lWhatColumns = new JLabel("What Columns?");
 		JLabel lWhatRelationships = new JLabel("What Relationships?");
-		List<JCheckBox> listWhatTables = getTablesFromDatabase();
-		pWhatTables = addCheckboxes(pWhatTables, listWhatTables);
+		getTablesFromDatabase();
+		addTableCheckBoxes();
+
 		spTables = new JScrollPane(pWhatTables,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-		
-		pWhatColumns.setPreferredSize(new Dimension(120,200));		
 		spColumns = new JScrollPane(pWhatColumns,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+		
+		pWhatRelationships.setPreferredSize(new Dimension(200,200));
+		spRelationships = new JScrollPane(pWhatRelationships,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
 		spQuery = new JScrollPane(textArea,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+		
+		spTables.setPreferredSize(new Dimension(120,200));
+		spColumns.setPreferredSize(new Dimension(120,200));
+		spRelationships.setPreferredSize(new Dimension(200,200));
+		spTables.setViewportView(pWhatTables);
+		spColumns.setViewportView(pWhatColumns);
+
 	    GridBagConstraints c = new GridBagConstraints();
 	    c.gridx = 0;
 	    c.gridy = 0;
@@ -126,15 +154,21 @@ public class QueryTool {
 		c.gridx = 50;
 	    c.gridy = 0;
 		entirePanel.add(lWhatColumns,c);
-		c.gridx = 100;
+		c.gridx = 75;
 	    c.gridy = 0;
 		entirePanel.add(lWhatRelationships,c);
+		c.gridx = 75;
+	    c.gridy = 10;
+		entirePanel.add(bAddRelationship,c);
 		c.gridx = 0;
 	    c.gridy = 20;
 		entirePanel.add(spTables,c);
 		c.gridx = 50;
 	    c.gridy = 20;
 		entirePanel.add(spColumns,c);
+		c.gridx = 75;
+	    c.gridy = 20;
+		entirePanel.add(spRelationships,c);
 		
 		c.gridx = 0;
 	    c.gridy = 40;
@@ -144,6 +178,17 @@ public class QueryTool {
 	    c.gridy = 60;
 	    c.gridwidth = 1;
 		entirePanel.add(bExecute,c);
+	}
+	
+	public JPanel createNewRow(JPanel panel) {
+		String [] operations = {" = ", " != "};
+		JComboBox firstOption = new JComboBox();
+		JComboBox operation = new JComboBox(operations);
+		JComboBox secondOption = new JComboBox();
+		panel.add(firstOption);
+		panel.add(operation);
+		panel.add(secondOption);
+		return panel;
 	}
 	
 	public void testQuery() {
@@ -185,43 +230,28 @@ public class QueryTool {
 
 	}
 	
-	public JPanel addCheckboxes(JPanel panel, List<JCheckBox>incoming) {
-		panel.setSize(new Dimension(150,200));
-		panel.setPreferredSize(new Dimension(150,200));
-		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-
-		for(JCheckBox each : incoming) {
-			panel.add(each);
+	public void addTableCheckBoxes() {
+		for (Entry<JCheckBox, ArrayList<JCheckBox>> entry : map.entrySet()) { 
+			pWhatTables.add(entry.getKey());
 		}
-		return panel;
 	}
 	
-	public JPanel removeCheckboxes(JPanel panel, List<JCheckBox>incoming) {
-		panel.setSize(new Dimension(150,200));
-		panel.setPreferredSize(new Dimension(150,200));
-		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-
-		for(JCheckBox each : incoming) {
-			panel.remove(each);
-		}
-		return panel;
-	}
-	
-	private List<JCheckBox> getTablesFromDatabase() {
-		List<JCheckBox>allCheckBoxes = new ArrayList<JCheckBox>();
+	private void getTablesFromDatabase() {
 		try {
 			Statement st = activeConnection.createStatement();
+			Statement st2 = activeConnection.createStatement();
 	        final ResultSet rs = st.executeQuery("SELECT DISTINCT TABLE_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='"+ databaseName +"';");
 			while(rs.next()) {
-				final JCheckBox chk = new JCheckBox(rs.getString("TABLE_NAME"));
+				String tableName = rs.getString("TABLE_NAME");
+				final JCheckBox chk = new JCheckBox(tableName);
 				chk.addActionListener(new ActionListener() {
 					public void actionPerformed(ActionEvent e) {
 						try {
 							if(chk.isSelected()) {
-								addColumnsToPanel(chk.getText());
+								addColumnsToPanel(chk);
 							}
 							else {
-								removeColumnsFromPanel(chk.getText());
+								removeColumnsFromPanel(chk);
 							}
 							updateQuery();
 						}
@@ -230,13 +260,35 @@ public class QueryTool {
 						}
 					}
 				});
-				allCheckBoxes.add(chk);
+				ArrayList<JCheckBox>columns = new ArrayList<JCheckBox>();
+		        final ResultSet rs2 = st2.executeQuery("SELECT * FROM " + tableName + " LIMIT 1;");
+		        ResultSetMetaData rsmd = rs2.getMetaData();
+		        int columnCount = rsmd.getColumnCount();
+				for(int i = 1; i < columnCount + 1; i++) {
+					final JCheckBox chk2 = new JCheckBox(tableName+"."+rsmd.getColumnName(i));
+					chk2.addActionListener(new ActionListener() {
+						public void actionPerformed(ActionEvent e) {
+							try {
+								/*if(chk.isSelected()) {
+									addColumnsToPanel(chk.getText());
+								}
+								else {
+									removeColumnsFromPanel(chk.getText());
+								}*/
+								updateQuery();
+							}
+							catch(Exception ex) {
+								ex.printStackTrace();
+							}
+						}
+					});
+					columns.add(chk2);
+				}
+				map.put(chk,columns);
 			}
-			return allCheckBoxes;
 		}
 		catch(Exception e) {
 			e.printStackTrace();
-			return null;
 		}
 	}
 	
@@ -267,51 +319,32 @@ public class QueryTool {
 		}
 	}
 	
-	public void addColumnsToPanel(String table) {
-		ArrayList<JCheckBox>columns = getColumnsFromTable(table);
-		pWhatColumns = addCheckboxes(pWhatColumns, columns);
+	public void addColumnsToPanel(JCheckBox chk) {
+		addCheckboxes(chk);
 	}
 	
-	public void removeColumnsFromPanel(String table) {
-		ArrayList<JCheckBox>columns = getColumnsFromTable(table);
-		pWhatColumns = removeCheckboxes(pWhatColumns, columns);
+	public void removeColumnsFromPanel(JCheckBox chk) {
+		removeCheckboxes(chk);
 	}
 	
-	public ArrayList<JCheckBox> getColumnsFromTable(String table) {
-		ArrayList<JCheckBox>columns = new ArrayList<JCheckBox>();
-		try {
-			Statement st = activeConnection.createStatement();
-	        final ResultSet rs = st.executeQuery("SELECT * FROM " + table + " LIMIT 1;");
-	        ResultSetMetaData rsmd = rs.getMetaData();
-	        int columnCount = rsmd.getColumnCount();
-			for(int i = 1; i < columnCount + 1; i++) {
-				final JCheckBox chk = new JCheckBox(rsmd.getColumnName(i));
-				chk.addActionListener(new ActionListener() {
-					public void actionPerformed(ActionEvent e) {
-						try {
-							/*if(chk.isSelected()) {
-								addColumnsToPanel(chk.getText());
-							}
-							else {
-								removeColumnsFromPanel(chk.getText());
-							}*/
-							updateQuery();
-						}
-						catch(Exception ex) {
-							ex.printStackTrace();
-						}
-					}
-				});
-				columns.add(chk);
-			}
-			return columns;
-		}
-		catch(Exception e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
+	public void addCheckboxes(JCheckBox chk) {
+		pWhatColumns.setSize(new Dimension(150,200));
 
+		ArrayList<JCheckBox>columnsToAdd = map.get(chk);
+		for(JCheckBox each : columnsToAdd) {
+			pWhatColumns.add(each);
+		}	
+	}
+	
+	public void removeCheckboxes(JCheckBox chk) {
+		pWhatColumns.setSize(new Dimension(150,200));
+
+		ArrayList<JCheckBox>columnsToRemove = map.get(chk);
+		for(JCheckBox each : columnsToRemove) {
+			pWhatColumns.remove(each);
+		}
+	}
+	
 	public void addFileMenu() {
 		JMenu file = new JMenu("File");
 		file.setMnemonic('F');
